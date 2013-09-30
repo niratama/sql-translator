@@ -35,7 +35,11 @@ sub quote {
 
   my $sep = $self->name_sep || '';
   # parts containing * are naturally unquoted
-  join $sep, map "$l$_$r", ( $sep ? split (/\Q$sep\E/, $label ) : $label )
+  join $sep, map {
+    $_ =~ s/\Q$l\E/$l$l/g;
+    $_ =~ s/\Q$r\E/$r$r/g if $l ne $r;
+    "$l$_$r";
+  } ( $sep ? split (/\Q$sep\E/, $label ) : $label )
 }
 
 1;

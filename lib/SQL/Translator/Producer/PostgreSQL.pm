@@ -294,15 +294,12 @@ sub create_table
     my $type_defs = $options->{type_defs} || {};
 
     my $table_name = $table->name or next;
-    my ( $fql_tbl_name ) = ( $table_name =~ s/\W(.*)$// ) ? $1 : q{};
-    my $table_name_ur = $qt ? join('.', $table_name, $fql_tbl_name)
-        : $fql_tbl_name ? join('.', $table_name, $fql_tbl_name)
-        : $table_name;
+    my $table_name_qt = $generator->quote($table_name);
 
 # print STDERR "$table_name table_name\n";
     my ( @comments, @field_defs, @sequence_defs, @constraint_defs, @fks );
 
-    push @comments, "--\n-- Table: $table_name_ur\n--\n" unless $no_comments;
+    push @comments, "--\n-- Table: $table_name_qt\n--\n" unless $no_comments;
 
     if ( $table->comments and !$no_comments ){
         my $c = "-- Comments: \n-- ";
@@ -318,7 +315,7 @@ sub create_table
     for my $field ( $table->get_fields ) {
         push @field_defs, create_field($field, { quote_table_names => $qt,
                                                  quote_field_names => $qf,
-                                                 table_name => $table_name_ur,
+                                                 table_name => $table_name,
                                                  postgres_version => $postgres_version,
                                                  type_defs => $type_defs,
                                                  constraint_defs => \@constraint_defs,});
@@ -366,12 +363,12 @@ sub create_table
     $create_statement = join("\n", @comments);
     if ($add_drop_table) {
         if ($postgres_version >= 8.002) {
-            $create_statement .= 'DROP TABLE IF EXISTS ' . $generator->quote($table_name_ur) . " CASCADE;\n";
+            $create_statement .= "DROP TABLE IF EXISTS $table_name_qt CASCADE;\n";
         } else {
-            $create_statement .= 'DROP TABLE ' . $generator->quote($table_name_ur) . " CASCADE;\n";
+            $create_statement .= "DROP TABLE $table_name_qt CASCADE;\n";
         }
     }
-    $create_statement .= "CREATE ${temporary}TABLE " . $generator->quote($table_name_ur) . " (\n" .
+    $create_statement .= "CREATE ${temporary}TABLE $table_name_qt (\n" .
                             join( ",\n", map { "  $_" } @field_defs, @constraint_defs ).
                             "\n)"
                             ;
