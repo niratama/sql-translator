@@ -185,7 +185,7 @@ statement : comment
     | empty_statement
     | <error>
 
-use : /use/i WORD "$delimiter"
+use : /use/i NAME "$delimiter"
     {
         $database_name = $item[2];
         @table_comments = ();
@@ -237,7 +237,7 @@ alter : ALTER TABLE table_name alter_specification(s /,/) "$delimiter"
 alter_specification : ADD foreign_key_def
     { $return = $item[2] }
 
-create : CREATE /database/i WORD "$delimiter"
+create : CREATE DATABASE opt_if_not_exists(?) NAME "$delimiter"
     { @table_comments = () }
 
 create : CREATE TEMPORARY(?) TABLE opt_if_not_exists(?) table_name '(' create_definition(s /,/) /(,\s*)?\)/ table_option(s?) "$delimiter"
@@ -308,12 +308,12 @@ create : CREATE UNIQUE(?) /(index|key)/i index_name /on/i table_name '(' field_n
         ;
     }
 
-create : CREATE /trigger/i NAME not_delimiter "$delimiter"
+create : CREATE /trigger/i trigger_name not_delimiter "$delimiter"
     {
         @table_comments = ();
     }
 
-create : CREATE PROCEDURE NAME not_delimiter "$delimiter"
+create : CREATE PROCEDURE procedure_name not_delimiter "$delimiter"
     {
         @table_comments = ();
         my $func_name = $item[3];
@@ -329,10 +329,10 @@ create : CREATE PROCEDURE NAME not_delimiter "$delimiter"
 PROCEDURE : /procedure/i
     | /function/i
 
-create : CREATE or_replace(?) create_view_option(s?) /view/i NAME /as/i view_select_statement "$delimiter"
+create : CREATE or_replace(?) create_view_option(s?) /view/i view_name /as/i view_select_statement "$delimiter"
     {
         @table_comments = ();
-        my $view_name   = $item{'NAME'};
+        my $view_name   = $item{'view_name'};
         my $select_sql  = $item{'view_select_statement'};
         my $options     = $item{'create_view_option(s?)'};
 
@@ -392,7 +392,7 @@ view_definer : /definer=\S+/i
 
 view_sql_security : /sql \s+ security  \s+ (definer|invoker)/ixs
 
-not_delimiter : /.*?(?=$delimiter)/is
+not_delimiter : /.*?(?=\Q$delimiter\E)/is
 
 view_select_statement : /[(]?/ /select/i view_column_def /from/i view_table_def /[)]?/
     {
@@ -421,7 +421,7 @@ view_column_def : /(.*?)(?=\bfrom\b)/ixs
         $return = \@cols;
     }
 
-not_delimiter : /.*?(?=$delimiter)/is
+not_delimiter : /.*?(?=\Q$delimiter\E)/is
 
 view_table_def : not_delimiter
     {
@@ -624,7 +624,13 @@ index : normal_index
     | spatial_index
     | <error>
 
-table_name   : NAME
+table_name   : NAME_WITH_DBNAME | NAME
+
+view_name    : NAME_WITH_DBNAME | NAME
+
+trigger_name : NAME_WITH_DBNAME | NAME
+
+procedure_name : NAME_WITH_DBNAME | NAME
 
 field_name   : NAME
 
@@ -801,14 +807,16 @@ spatial_index : /spatial/i KEY(?) index_name(?) '(' name_with_opt_paren(s /,/) '
         }
     }
 
-name_with_opt_paren : NAME parens_value_list(s?)
+name_with_opt_paren : NAME parens_value_list(s?) index_value_order(?)
     { $item[2][0] ? "$item[1]($item[2][0][0])" : $item[1] }
+
+index_value_order : /asc/i | /desc/i
 
 UNIQUE : /unique/i
 
 KEY : /key/i | /index/i
 
-table_option : /comment/i /=/ /'.*?'/
+table_option : /comment/i /=/ /'.*?'/s
     {
         my $comment = $item[3];
         $comment    =~ s/^'//;
@@ -848,6 +856,8 @@ CREATE : /create/i
 
 TEMPORARY : /temporary/i
 
+DATABASE : /database/i | /schema/i
+
 TABLE : /table/i
 
 WORD : /\w+/
@@ -871,6 +881,11 @@ QUOTED_NAME : BACKTICK /[^`]+/ BACKTICK
 
 NAME: QUOTED_NAME
     | /\w+/
+
+PERIOD : '.'
+
+NAME_WITH_DBNAME: QUOTED_NAME PERIOD QUOTED_NAME
+    { $item[3] }
 
 VALUE : /[-+]?\.?\d+(?:[eE]\d+)?/
     { $item[1] }

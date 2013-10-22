@@ -12,7 +12,7 @@ use Test::SQL::Translator qw(maybe_plan);
 use FindBin qw/$Bin/;
 
 BEGIN {
-    maybe_plan(346, "SQL::Translator::Parser::MySQL");
+    maybe_plan(350, "SQL::Translator::Parser::MySQL");
     SQL::Translator::Parser::MySQL->import('parse');
 }
 
@@ -957,3 +957,14 @@ ok ($@, 'Exception thrown on invalid version string');
     ok (!$tr->error, 'no error');
     ok (my $schema = $tr->schema, 'got schema');
 }
+
+{
+    # test mysql workbench export
+    my $file = "$Bin/data/mysql/mysql_workbench.sql";
+    ok (-f $file,"File exists");
+    my $tr = SQL::Translator->new( parser => 'MySQL');
+    ok ($tr->translate($file),'File translated');
+    ok (!$tr->error, 'no error');
+    ok (my $schema = $tr->schema, 'got schema');
+}
+
